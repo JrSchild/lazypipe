@@ -11,6 +11,7 @@ function validateStep(step) {
                       '    Remember not to call stream creation functions directly! e.g.: pipe(foo), not pipe(foo())');
   }
 }
+
 function validateSteps(steps) {
   if (steps.length === 0) {
     throw new Error('Tried to build a pipeline with no pipes!');
@@ -18,36 +19,35 @@ function validateSteps(steps) {
 }
 
 function createPipeline(steps) {
-  function build() {
+  function Pipeline() {
     validateSteps(steps);
+
     return combine.apply(null, steps.map(function (t) {
       return t.task.apply(null, t.args);
     }));
   }
   
-  build.appendStepsTo = function (otherSteps) {
+  Pipeline.appendStepsTo = function (otherSteps) {
     return otherSteps.concat(steps);
   };
   
-  build.pipe = function (step) {
+  Pipeline.pipe = function (step) {
     validateStep(step);
 
+    // avoid creating nested pipelines
     if (step.appendStepsTo) {
-      // avoid creating nested pipelines
       return createPipeline(step.appendStepsTo(steps));
-    } else {
-      return createPipeline(steps.concat({
-        task: step,
-        args: Array.prototype.slice.call(arguments, 1)
-      }));
     }
+
+    return createPipeline(steps.concat({
+      task: step,
+      args: Array.prototype.slice.call(arguments, 1)
+    }));
   };
   
-  return build;
-};
-
-function lazypipe() {
-  return createPipeline([]);
+  return Pipeline;
 }
 
-module.exports = createPipeline.bind(this, []);
+module.exports = function () {
+	return createPipeline([]);
+};
